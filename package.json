@@ -4,10 +4,12 @@
   "description": "企業においてSlackを利用する時に便利な一括更新などの機能を提供する",
   "main": "index.js",
   "dependencies": {
-    "@slack/client": "^4.2.2"
+    "@slack/client": "^4.2.2",
+    "csv-parse": "^2.4.0"
   },
   "devDependencies": {
-    "ava": "^0.25.0"
+    "ava": "^0.25.0",
+    "testdouble": "^3.8.1"
   },
   "scripts": {
     "test": "ava"

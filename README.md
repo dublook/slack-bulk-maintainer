@@ -1,0 +1,2 @@
+# slack-bulk-maintainer
+企業においてSlackを利用する時に便利な一括更新などの機能を提供する

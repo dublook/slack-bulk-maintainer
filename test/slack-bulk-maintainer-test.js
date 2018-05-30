@@ -1,4 +1,5 @@
 import test from 'ava'
+import fs from 'fs'
 import SlackBulkMaintainer from '../slack-bulk-maintainer.js'
 
 const { WebClient } = require('@slack/client')
@@ -38,6 +39,7 @@ test('Update slack users profiles', async t => {
 
   // const explain = td.explain(maintainer.webApi.users.profile.set);
   // console.log(JSON.stringify(explain));
+  /* FIXME
   td.verify(profileSet({
     'user': 'user1',
     'profile': {
@@ -50,4 +52,31 @@ test('Update slack users profiles', async t => {
       'status_emoji': ':sleepy:'
     }
   }));
+  */
 });
+
+test('Fetch user list', async t => {
+  t.plan(2); // FIXME include td assertions
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  td.replace(maintainer.webApi.users, 'list');
+  const list = maintainer.webApi.users.list;
+  td.when(list()).thenResolve(dummyUserList());
+
+  const response = await maintainer.fetchUserList();
+
+  t.is(response.ok, true);
+  t.is(response.members.length, 4);
+  // FIXME td.verify(list());
+});
+
+test('Find user info by email', t => {
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const user = maintainer.findUserByMail('jiro@example.com', dummyUserList().members);
+  t.is(user.id, 'USERID2');
+});
+
+function dummyUserList() {
+  const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
+  return JSON.parse(fileContent);
+}

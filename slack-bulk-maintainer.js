@@ -41,4 +41,12 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
   return Promise.all(webApiRequests);
 }
 
+SlackBulkMaintainer.prototype.fetchUserList = function() {
+  return this.webApi.users.list();
+}
+
+SlackBulkMaintainer.prototype.findUserByMail = function(email, userList) {
+  return userList.find(user => user.profile.email === email)
+}
+
 module.exports = SlackBulkMaintainer;

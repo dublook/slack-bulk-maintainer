@@ -39,13 +39,60 @@ SlackBulkMaintainer.prototype.parseParamFromCsv = function (csvPath) {
   return csvParams;
 }
 
-SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
+SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath, userList) {
   const webApiRequests = this.parseParamFromCsv(csvPath)
-    .map(updateBody => {
-      delete updateBody.profile.email;
-      return this.webApi.users.profile.set(updateBody);
+    .map((csvParam) => {
+      return this.buildUpdateQuery(csvParam, userList);
+    })
+    .map((updateQuery) => {
+      return this.updateProfileByQuery(updateQuery)
+        .then(updateResponse => this.leaveUpdateProfileLog(updateResponse))
+        .then(updateResponse => this.notifyUpdatedUser(updateResponse));
     });
   return Promise.all(webApiRequests);
+}
+
+SlackBulkMaintainer.prototype.updateProfileByQuery = function(updateQuery) {
+  if (updateQuery.skipCallApi) {
+    return Promise.resolve({
+      apiCallResponse: {},
+      updateQuery: updateQuery
+    });
+  }
+  return this.webApi.users.profile.set(updateQuery.apiParam)
+    .then(response => {
+      return Promise.resolve({
+        apiCallResponse: response,
+        updateQuery: updateQuery
+      })
+    })
+    .catch(error => {
+      // TODO switch handling based on error type
+      return Promise.resolve({
+        apiCallResponse: error,
+        updateQuery: updateQuery
+      })
+    });
+}
+
+SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {
+  const updateQuery = updateResult.updateQuery;
+  const email = updateQuery.csvParam.profile.email;
+  const apiCallResponse = updateResult.apiCallResponse;
+  if (updateQuery.skipCallApi) {
+    console.log(`${email} の更新をスキップしました。` +
+      `${updateResult.updateQuery.skipReasons[0].message}`);
+  } else if (!apiCallResponse.data.ok) {
+    console.log(`${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
+  } else if (apiCallResponse.data.ok) {
+    console.log(`${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
+  }
+  return Promise.resolve(updateResult);
+}
+
+SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
+  // TODO implement
+  return Promise.resolve(updateResult);
 }
 
 SlackBulkMaintainer.prototype.fetchUserList = function() {
@@ -62,6 +109,7 @@ SlackBulkMaintainer.prototype.buildUpdateQuery = function(csvParam, userList) {
     skipReasons: [],
     skippedColumns: [],
     currentUserInfo: null,
+    csvParam: csvParam,
     apiParam: {
       user: null,
       profile: null

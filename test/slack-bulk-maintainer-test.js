@@ -21,33 +21,29 @@ test('Maintainer hold slack token', async t => {
 });
 
 test('Update slack users profiles', async t => {
-  t.plan(6);
+  t.plan(4);
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
 
+  const userList = dummyUserList();
+
   td.replace(maintainer.webApi.users.profile, 'set');
   const profileSet = maintainer.webApi.users.profile.set;
-  const profileSetExplain = td.explain(profileSet);
   td.when(profileSet(td.matchers.anything()))
-    .thenResolve({ok: true});
+    .thenResolve({
+      data: {ok: true}
+    });
+  const profileSetExplain = td.explain(profileSet);
 
   const filePath = 'test/resoures/update-profiles.csv';
-  const responses = await maintainer.updateProfilesFromCsv(filePath)
+  const responses = await maintainer.updateProfilesFromCsv(filePath, userList.members);
 
   t.is(responses.length, 2);
-  t.is(responses[0].ok, true);
-  t.is(responses[1].ok, true);
-
+  t.is(responses[0].updateQuery.skipCallApi, true);
   
-  t.is(profileSetExplain.calls.length, 2);
+  t.is(profileSetExplain.calls.length, 1);
   t.deepEqual(profileSetExplain.calls[0].args, [{
-    'user': 'user1',
-    'profile': {
-      'status_emoji': ':sunglasses:'
-    }
-  }]);
-  t.deepEqual(profileSetExplain.calls[1].args, [{
-    'user': 'user2',
+    'user': 'USERID2',
     'profile': {
       'status_emoji': ':sleepy:'
     }
@@ -76,7 +72,7 @@ test('Find user info by email', t => {
 });
 
 test('Build update query', t => {
-  t.plan(6);
+  t.plan(7);
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
   const csvParam = {
@@ -88,6 +84,7 @@ test('Build update query', t => {
   }
   const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
   t.is(query.skipCallApi, false);
+  t.deepEqual(query.csvParam, csvParam);
   t.is(query.apiParam.user, 'USERID2');
   t.is(query.apiParam.profile.display_name, 'JIRO-T');
   t.is(query.apiParam.profile.real_name, undefined); // skiped
@@ -181,11 +178,11 @@ test('Parse update param from CSV', t => {
   let i = 0;
   t.deepEqual(csvParams[i++].profile, {
     status_emoji: ':sunglasses:',
-    email: 'user1@example.com'
+    email: 'suzuki-ichiro1@example.com'
   });
   t.deepEqual(csvParams[i++].profile, {
     status_emoji: ':sleepy:',
-    email: 'user2@example.com'
+    email: 'jiro@example.com'
   })
 });
 

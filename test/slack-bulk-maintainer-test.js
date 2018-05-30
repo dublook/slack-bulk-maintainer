@@ -1,4 +1,5 @@
 import test from 'ava'
+import fs from 'fs'
 import SlackBulkMaintainer from '../slack-bulk-maintainer.js'
 
 const { WebClient } = require('@slack/client')
@@ -50,4 +51,20 @@ test('Update slack users profiles', async t => {
       'status_emoji': ':sleepy:'
     }
   }));
+});
+
+test('Fetch user list', async t => {
+  t.plan(2); // FIXME include td assertions
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const dummyUserList = JSON.parse(fs.readFileSync('test/resoures/user-list.json', 'utf8'));
+  td.replace(maintainer.webApi.users, 'list');
+  const list = maintainer.webApi.users.list;
+  td.when(list()).thenResolve(dummyUserList);
+
+  const response = await maintainer.fetchUserList();
+
+  t.is(response.ok, true);
+  t.is(response.members.length, 4);
+  td.verify(list());
 });

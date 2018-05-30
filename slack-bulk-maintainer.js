@@ -46,7 +46,76 @@ SlackBulkMaintainer.prototype.fetchUserList = function() {
 }
 
 SlackBulkMaintainer.prototype.findUserByMail = function(email, userList) {
-  return userList.find(user => user.profile.email === email)
+  return userList.find(user => user.profile.email === email);
+}
+
+SlackBulkMaintainer.prototype.buildUpdateQuery = function(csvParam, userList) {
+  const query = {
+    skipCallApi: true,
+    skipReasons: [],
+    skippedColumns: [],
+    currentUserInfo: null,
+    apiParam: {
+      user: null,
+      profile: null
+    }
+  }
+  const userInfo = this.findUserByMail(csvParam.profile.email, userList);
+  if (!userInfo) {
+    return Object.assign(query, {
+      skipReasons: [{
+        reason: 'no_user_found_for_email',
+        message: '指定されたメールアドレスを持つSlackユーザーが見つかりませんでした'
+      }]
+    });
+  } else if (userInfo.is_admin == true) {
+    return Object.assign(query, {
+      skipReasons: [{
+        reason: 'admin_user_cannot_be_updated',
+        message: '管理者ユーザーのプロフィールを更新することはできません'
+      }],
+      currentUserInfo: userInfo
+    });
+  }
+  const apiParamProfile = {};
+  const skippedColumns = [];
+
+  Object.keys(csvParam.profile).forEach(k => {
+    if (k === 'email') {
+      // does not support email update
+      return;
+    }
+    if (userInfo.profile[k] === csvParam.profile[k]) {
+      skippedColumns.push({
+        field: k,
+        reason: 'same_with_exsiting'
+      })
+    } else {
+      apiParamProfile[k] = csvParam.profile[k];
+    }
+  });
+
+  if (Object.keys(apiParamProfile).length === 0) {
+    return Object.assign(query, {
+      skipReasons: [{
+        reason: 'all_fields_are_updated',
+        message: '全ての項目が更新済みだったので、更新APIの呼び出しをスキップしました'
+      }],
+      skippedColumns: skippedColumns,
+      currentUserInfo: userInfo
+    });
+  }
+
+  const callApiQuery = Object.assign(query, {
+    skipCallApi: false,
+    currentUserInfo: userInfo,
+    skippedColumns: skippedColumns,
+    apiParam: {
+      user: userInfo.id,
+      profile: apiParamProfile
+    }
+  });
+  return callApiQuery;
 }
 
 module.exports = SlackBulkMaintainer;

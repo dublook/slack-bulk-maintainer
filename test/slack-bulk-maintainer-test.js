@@ -76,6 +76,102 @@ test('Find user info by email', t => {
   t.is(user.id, 'USERID2');
 });
 
+test('Build update query', t => {
+  t.plan(6);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const csvParam = {
+    profile: {
+      email: 'jiro@example.com',
+      real_name: '田中 二郎',
+      display_name: 'JIRO-T'
+    }
+  }
+  const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
+  t.is(query.skipCallApi, false);
+  t.is(query.apiParam.user, 'USERID2');
+  t.is(query.apiParam.profile.display_name, 'JIRO-T');
+  t.is(query.apiParam.profile.real_name, undefined); // skiped
+  t.deepEqual(query.skippedColumns, [{
+    field: 'real_name',
+    reason: 'same_with_exsiting'
+  }]);
+  t.not(query.currentUserInfo, null);
+});
+
+test('Build update query for admin user, it will be skipped', t => {
+  t.plan(6);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const csvParam = {
+    profile: {
+      email: 'suzuki-ichiro1@example.com',
+      display_name: 'ICHIRO'
+    }
+  }
+  const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
+  t.is(query.skipCallApi, true);
+  t.deepEqual(query.skipReasons, [{
+    reason: 'admin_user_cannot_be_updated',
+    message: '管理者ユーザーのプロフィールを更新することはできません'
+  }]);
+  t.is(query.apiParam.user, null);
+  t.is(query.apiParam.profile, null);
+  t.deepEqual(query.skippedColumns, []);
+  t.not(query.currentUserInfo, null);
+});
+
+test('Build update query for admin user, skipped due to all columns are updated', t => {
+  t.plan(6);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const csvParam = {
+    profile: {
+      email: 'jiro@example.com',
+      real_name: '田中 二郎',
+      display_name: 'JIRO'
+    }
+  }
+  const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
+  t.is(query.skipCallApi, true);
+  t.deepEqual(query.skipReasons, [{
+    reason: 'all_fields_are_updated',
+    message: '全ての項目が更新済みだったので、更新APIの呼び出しをスキップしました'
+  }]);
+  t.is(query.apiParam.user, null);
+  t.is(query.apiParam.profile, null);
+  t.deepEqual(query.skippedColumns, [{
+    field: 'real_name',
+    reason: 'same_with_exsiting'
+  }, {
+    field: 'display_name',
+    reason: 'same_with_exsiting'
+  }]);
+  t.not(query.currentUserInfo, null);
+});
+
+test('Build update query for admin user, skipped due to no user found for email', t => {
+  t.plan(6);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const csvParam = {
+    profile: {
+      email: 'noone@example.com',
+      display_name: '名無し'
+    }
+  }
+  const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
+  t.is(query.skipCallApi, true);
+  t.deepEqual(query.skipReasons, [{
+    reason: 'no_user_found_for_email',
+    message: '指定されたメールアドレスを持つSlackユーザーが見つかりませんでした'
+  }]);
+  t.is(query.apiParam.user, null);
+  t.is(query.apiParam.profile, null);
+  t.deepEqual(query.skippedColumns, []);
+  t.is(query.currentUserInfo, null);
+});
+
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);

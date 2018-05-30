@@ -171,6 +171,24 @@ test('Build update query for admin user, skipped due to no user found for email'
   t.is(query.currentUserInfo, null);
 });
 
+test('Parse update param from CSV', t => {
+  t.plan(3);
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const filePath = 'test/resoures/update-profiles.csv';
+  const csvParams = maintainer.parseParamFromCsv(filePath);
+
+  t.is(csvParams.length, 2);
+  let i = 0;
+  t.deepEqual(csvParams[i++].profile, {
+    status_emoji: ':sunglasses:',
+    email: 'user1@example.com'
+  });
+  t.deepEqual(csvParams[i++].profile, {
+    status_emoji: ':sleepy:',
+    email: 'user2@example.com'
+  })
+});
+
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);

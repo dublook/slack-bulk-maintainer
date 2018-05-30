@@ -6,14 +6,14 @@ function SlackBulkMaintainer(token) {
   this.webApi = new WebClient(token)
 }
 
-SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
+SlackBulkMaintainer.prototype.parseParamFromCsv = function (csvPath) {
   const csvRaw = fs.readFileSync(csvPath);
   const rows = csvParse(csvRaw, {
     skip_empty_line: true,
     columns: true
   });
 
-  const webApiRequests = rows
+  const csvParams = rows
     .map(row => {
       const updateBody = {
         profile: {}
@@ -35,7 +35,12 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
         }
       })
       return updateBody;
-    })
+    });
+  return csvParams;
+}
+
+SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
+  const webApiRequests = this.parseParamFromCsv(csvPath)
     .map(updateBody => {
       delete updateBody.profile.email;
       return this.webApi.users.profile.set(updateBody);

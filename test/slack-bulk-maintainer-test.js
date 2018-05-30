@@ -57,10 +57,9 @@ test('Fetch user list', async t => {
   t.plan(2); // FIXME include td assertions
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
-  const dummyUserList = JSON.parse(fs.readFileSync('test/resoures/user-list.json', 'utf8'));
   td.replace(maintainer.webApi.users, 'list');
   const list = maintainer.webApi.users.list;
-  td.when(list()).thenResolve(dummyUserList);
+  td.when(list()).thenResolve(dummyUserList());
 
   const response = await maintainer.fetchUserList();
 
@@ -68,3 +67,14 @@ test('Fetch user list', async t => {
   t.is(response.members.length, 4);
   td.verify(list());
 });
+
+test('Find user info by email', t => {
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const user = maintainer.findUserByMail('jiro@example.com', dummyUserList().members);
+  t.is(user.id, 'USERID2');
+});
+
+function dummyUserList() {
+  const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
+  return JSON.parse(fileContent);
+}

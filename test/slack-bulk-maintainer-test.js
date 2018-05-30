@@ -21,12 +21,13 @@ test('Maintainer hold slack token', async t => {
 });
 
 test('Update slack users profiles', async t => {
-  t.plan(3); // FIXME include td assertions
+  t.plan(6);
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
 
   td.replace(maintainer.webApi.users.profile, 'set');
   const profileSet = maintainer.webApi.users.profile.set;
+  const profileSetExplain = td.explain(profileSet);
   td.when(profileSet(td.matchers.anything()))
     .thenResolve({ok: true});
 
@@ -37,22 +38,20 @@ test('Update slack users profiles', async t => {
   t.is(responses[0].ok, true);
   t.is(responses[1].ok, true);
 
-  // const explain = td.explain(maintainer.webApi.users.profile.set);
-  // console.log(JSON.stringify(explain));
-  /* FIXME
-  td.verify(profileSet({
+  
+  t.is(profileSetExplain.calls.length, 2);
+  t.deepEqual(profileSetExplain.calls[0].args, [{
     'user': 'user1',
     'profile': {
       'status_emoji': ':sunglasses:'
     }
-  }));
-  td.verify(profileSet({
+  }]);
+  t.deepEqual(profileSetExplain.calls[1].args, [{
     'user': 'user2',
     'profile': {
       'status_emoji': ':sleepy:'
     }
-  }));
-  */
+  }]);
 });
 
 test('Fetch user list', async t => {

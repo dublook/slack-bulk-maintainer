@@ -27,6 +27,7 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
           case 'display_name':
           case 'status_emoji':
           case 'status_text':
+          case 'email':
             updateBody.profile[k] = row[k];
             break;
           default:
@@ -36,6 +37,7 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath) {
       return updateBody;
     })
     .map(updateBody => {
+      delete updateBody.profile.email;
       return this.webApi.users.profile.set(updateBody);
     });
   return Promise.all(webApiRequests);

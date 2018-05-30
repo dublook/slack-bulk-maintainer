@@ -31,7 +31,7 @@ test('Update slack users profiles', async t => {
   const profileSet = maintainer.webApi.users.profile.set;
   td.when(profileSet(td.matchers.anything()))
     .thenResolve({
-      data: {ok: true}
+      ok: true
     });
   const profileSetExplain = td.explain(profileSet);
 
@@ -40,7 +40,7 @@ test('Update slack users profiles', async t => {
 
   t.is(responses.length, 2);
   t.is(responses[0].updateQuery.skipCallApi, true);
-  
+
   t.is(profileSetExplain.calls.length, 1);
   t.deepEqual(profileSetExplain.calls[0].args, [{
     'user': 'USERID2',
@@ -184,6 +184,87 @@ test('Parse update param from CSV', t => {
     status_emoji: ':sleepy:',
     email: 'jiro@example.com'
   })
+});
+
+test('Notify updated user', async t => {
+  t.plan(8);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  td.replace(maintainer.webApi.chat, 'postMessage');
+  const postMessage = maintainer.webApi.chat.postMessage;
+  td.when(postMessage(td.matchers.anything()))
+    .thenResolve({ ok: true });
+  const postMessageExplain = td.explain(postMessage);
+
+  const updateQuery = {
+    "skipCallApi": false,
+    "skipReasons": [],
+    "skippedColumns": [],
+    "currentUserInfo": {
+      "id": "USERID2",
+      "name": "jiro",
+      "real_name": "田中 二郎",
+      "profile": {
+        "real_name": "田中 二郎",
+        "display_name": "JIRO",
+        "status_text": "",
+        "status_emoji": "",
+      },
+      "is_admin": false,
+      "is_owner": false,
+      "is_primary_owner": false,
+      "is_restricted": false,
+      "is_ultra_restricted": false,
+      "is_bot": false,
+      "updated": 1527585010,
+      "is_app_user": false,
+      "has_2fa": false
+    },
+    "csvParam": {
+      "profile": {
+        "email": "jiro@example.com",
+        "status_emoji": ":sleepy:"
+      }
+    },
+    "apiParam": {
+      "user": "USERID2",
+      "profile": {
+        "status_emoji": ":sleepy:"
+      }
+    }
+  };
+
+  const updateResult = {
+    apiCallResponse: { ok: true },
+    updateQuery: updateQuery
+  }
+
+  const response = await maintainer.notifyUpdatedUser(updateResult);
+
+  t.is(response.notification.response.ok, true);
+  t.is(postMessageExplain.calls.length, 1, 'postMessageExplain must be called once');
+  const messageArg = postMessageExplain.calls[0].args[0];
+  // TODO t.is(messageArg.text, '');
+  t.is(messageArg.channel, 'USERID2');
+  t.is(messageArg.as_user, false);
+  t.is(messageArg.icon_url, 'https://slack-files2.s3-us-west-2.amazonaws.com/avatars/2016-04-18/35486615538_c9bc6670992704e477bd_88.png');
+  t.deepEqual(messageArg.attachments[0], {
+    color: '#81C784',
+    fields: [
+      {
+        short: false,
+        title: 'status_emoji',
+        value: `変更前: \n変更後: :sleepy:`,
+      },
+    ],
+  });
+  t.deepEqual(messageArg.attachments[1], {
+    title: 'Slackの運用改善に関する周知',
+    title_link: 'https://mediado.slack.com/archives/C03TWFV95/p1527578576000324',
+  });
+  t.deepEqual(messageArg.attachments[2], {
+    title: 'Slack運用に関する問い合わせ（TODO)'
+  });
 });
 
 function dummyUserList() {

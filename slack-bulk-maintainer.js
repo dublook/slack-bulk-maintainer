@@ -82,9 +82,9 @@ SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {
   if (updateQuery.skipCallApi) {
     console.log(`${email} の更新をスキップしました。` +
       `${updateResult.updateQuery.skipReasons[0].message}`);
-  } else if (!apiCallResponse.data.ok) {
+  } else if (!apiCallResponse.ok) {
     console.log(`${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
-  } else if (apiCallResponse.data.ok) {
+  } else if (apiCallResponse.ok) {
     console.log(`${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
   }
   return Promise.resolve(updateResult);
@@ -92,7 +92,72 @@ SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {
 
 SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
   // TODO implement
-  return Promise.resolve(updateResult);
+  if (updateResult.apiCallResponse
+    && updateResult.apiCallResponse.ok) {
+    // TODO pass message part via parameter or something like that
+    const attachments = Object.keys(updateResult.updateQuery.apiParam.profile)
+      .map(updatedKey => {
+        const newValue = updateResult.updateQuery.apiParam.profile[updatedKey];
+        const oldValue = updateResult.updateQuery.currentUserInfo.profile[updatedKey];
+        const fieldNameJa = {
+          'real_name': '氏名',
+          'display_name': '表示名'
+        }
+        let fieldName = fieldNameJa[updatedKey] || updatedKey;
+        const attachment = {
+            "color": '#81C784',
+            "fields":[
+              {
+                title: fieldName,
+                value: `変更前: ${oldValue}\n変更後: ${newValue}`,
+                "short":false
+              }
+            ]
+          };
+        return attachment;
+      });
+    attachments.push({
+      "title": "Slackの運用改善に関する周知",
+      'title_link': 'https://mediado.slack.com/archives/C03TWFV95/p1527578576000324'
+    });
+    attachments.push({
+      "title": "Slack運用に関する問い合わせ（TODO)",
+    })
+    const message = {
+      'channel': `${updateResult.updateQuery.apiParam.user}`,
+      'text': '\n\n\n' +
+        'おつかれさまです、MDHD情報システムチームです！\n' +
+        'このメッセージは情シスチームが作成したプログラムから自動送信されています。\n\n\n' +
+        '先日お知らせさせていただいたSlackの運用ルールに従った形で、Slackのユーザー名を自動更新させていただきました。\n' +
+        '細心の注意を払ってプログラムを実行しましたが、もし間違いがあれば、お手数ですが、以下までお問合せください。\n' +
+        '\n\n'+
+        '今後も情シスチームでは「粘り強い調整での泥臭い問題解決」だけでなく、\nこのような「エンジニアリングでのスマートな問題解決」も' +
+        '加え、両立していきたいと考えております。',
+      'as_user': false,
+      'attachments': attachments,
+      'username': 'MDHD情報システムチーム',
+      'icon_url':'https://slack-files2.s3-us-west-2.amazonaws.com/avatars/2016-04-18/35486615538_c9bc6670992704e477bd_88.png'
+    };
+    return this.webApi.chat.postMessage(message)
+      .then(response => {
+        updateResult.notification = {
+          response: response,
+          request: message
+        };
+        return Promise.resolve(updateResult)
+      })
+      .catch(error => {
+        // TODO switch handling based on error type
+        updateResult.notification = {
+          response: error,
+          request: message
+        };
+        return Promise.resolve(updateResult)
+      });
+  } else {
+    updateResult.notification = {};
+    return Promise.resolve(updateResult);
+  }
 }
 
 SlackBulkMaintainer.prototype.fetchUserList = function() {

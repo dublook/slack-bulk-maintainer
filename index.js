@@ -25,8 +25,11 @@ const args = (function() {
   }
   const dryRun = !(options['dry-run'] === false);
   if (dryRun) {
-    console.error('[DRY RUN] dry-run mode is ON. No slack POST method will be called. '
+    console.log('[DRY RUN] dry-run mode is ON. No slack POST method will be called. '
       + 'To disable dry-run mode, specify "--dry-run=false" option expressly.');
+  } else {
+    console.log('=============== YOU ARE IN PRODUCTION MODE ===============');
+    console.log('This is NOT dry-run mode. Slack POST methods will be called.');
   }
   const saveFullLog = !!options['save-full-log'];
   const maintainer = new SlackBulkMaintainer(slackToken, dryRun);
@@ -34,6 +37,7 @@ const args = (function() {
     return maintainer.updateProfilesFromCsv(csvFilePath, userList.members)
       .then(res => {
         if (saveFullLog) {
+          console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
           const logContent = JSON.stringify(res, null, 2);
           const logDir = `log/${Date.now()}.log`;
           require('fs').writeFileSync(logDir, logContent);

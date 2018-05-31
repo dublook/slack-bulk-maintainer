@@ -106,7 +106,7 @@ SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {
 
 SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
   const dryRunMsg = this.dryRun ? '[DRY RUN] ' : '';
-  const email = updateResult.updateQuery.currentUserInfo.profile.email;
+  const email = updateResult.updateQuery.csvParam.profile.email;
 
   if (updateResult.apiCallResponse
     && updateResult.apiCallResponse.ok) {

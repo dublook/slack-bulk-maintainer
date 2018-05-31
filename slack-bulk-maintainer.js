@@ -6,6 +6,16 @@ function SlackBulkMaintainer(token, dryRun) {
   this.webApi = new WebClient(token);
   this.dryRun = !!dryRun;
   this.makeDryRunMode();
+  const summaryTemplate = {
+    try: 0,
+    skip: 0,
+    success: 0,
+    error: 0
+  };
+  this.summary = {
+    profileSet: Object.assign({}, summaryTemplate),
+    postMessage: Object.assign({}, summaryTemplate)
+  }
 }
 
 SlackBulkMaintainer.prototype.makeDryRunMode = function() {
@@ -66,7 +76,9 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath, userLis
 }
 
 SlackBulkMaintainer.prototype.updateProfileByQuery = function(updateQuery) {
+  this.summary.profileSet.try++;
   if (updateQuery.skipCallApi) {
+    this.summary.profileSet.skip++;
     return Promise.resolve({
       apiCallResponse: {},
       updateQuery: updateQuery
@@ -74,6 +86,7 @@ SlackBulkMaintainer.prototype.updateProfileByQuery = function(updateQuery) {
   }
   return this.webApi.users.profile.set(updateQuery.apiParam)
     .then(response => {
+      this.summary.profileSet.success++;
       return Promise.resolve({
         apiCallResponse: response,
         updateQuery: updateQuery
@@ -81,6 +94,7 @@ SlackBulkMaintainer.prototype.updateProfileByQuery = function(updateQuery) {
     })
     .catch(error => {
       // TODO switch handling based on error type
+      this.summary.profileSet.error++;
       return Promise.resolve({
         apiCallResponse: error,
         updateQuery: updateQuery
@@ -110,6 +124,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
 
   if (updateResult.apiCallResponse
     && updateResult.apiCallResponse.ok) {
+    this.summary.postMessage.try++;
     // TODO pass message part via parameter or something like that
     const attachments = Object.keys(updateResult.updateQuery.apiParam.profile)
       .map(updatedKey => {
@@ -156,6 +171,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
     };
     return this.webApi.chat.postMessage(message)
       .then(response => {
+        this.summary.postMessage.success++;
         console.log(`${dryRunMsg}${email} に更新完了通知を送信しました`);
         updateResult.notification = {
           response: response,
@@ -164,6 +180,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
         return Promise.resolve(updateResult)
       })
       .catch(error => {
+        this.summary.postMessage.error++;
         console.log(`${dryRunMsg}${email} への更新完了通知送信時にエラーが発生しました`);
         // TODO switch handling based on error type
         updateResult.notification = {

@@ -36,6 +36,7 @@ const args = (function() {
   maintainer.fetchUserList().then(userList => {
     return maintainer.updateProfilesFromCsv(csvFilePath, userList.members)
       .then(res => {
+        console.log(maintainer.summary);
         if (saveFullLog) {
           console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
           const logContent = JSON.stringify(res, null, 2);
@@ -47,6 +48,8 @@ const args = (function() {
       });
   })
   .catch(error => {
+    console.error('Some error happens');
+    console.log(maintainer.summary);
     console.error(JSON.stringify(error, null, 2));
   })
 })(process.env.SLACK_TOKEN, args.targets[0], args.options)

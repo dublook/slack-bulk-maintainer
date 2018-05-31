@@ -5,6 +5,18 @@ const csvParse = require('csv-parse/lib/sync');
 function SlackBulkMaintainer(token, dryRun) {
   this.webApi = new WebClient(token);
   this.dryRun = !!dryRun;
+  this.makeDryRunMode();
+}
+
+SlackBulkMaintainer.prototype.makeDryRunMode = function() {
+  if (this.dryRun) {
+    const dryRunResponse = Promise.resolve({
+      ok: true,
+      dryRun: true
+    });
+    this.webApi.users.profile.set = () => dryRunResponse;
+    this.webApi.chat.postMessage = () => dryRunResponse;
+  }
 }
 
 SlackBulkMaintainer.prototype.parseParamFromCsv = function (csvPath) {

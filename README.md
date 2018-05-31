@@ -88,7 +88,7 @@ dry-runでログを確認し、csvファイルに間違いがないかなどを�
 詳細なログの確認のため、 `--save-full-log` を指定するのが良いでしょう。
 
 ```
-$ node index.js ./update-profiles-md.csv --save-full-log # 保存した場所に応じて、CSVファイルはパスは適宜書き換えてください
+$ node index.js ./update-profiles.csv --save-full-log # 保存した場所に応じて、CSVファイルはパスは適宜書き換えてください
 [DRY RUN] taro@example.com の更新をスキップしました。全ての項目が更新済みだったので、更新APIの呼び出しをスキップしました
 [DRY RUN] foobar@example.com の更新をスキップしました。指定されたメールアドレスを持つSlackユーザーが見つかりませんでした
 [DRY RUN] kanako@example.com のプロフィールを更新しました, {"user":"XXXX","profile":{"real_name":"高橋かなこ","display_name":"Kanako Takahashi"}}
@@ -100,7 +100,7 @@ $ node index.js ./update-profiles-md.csv --save-full-log # 保存した場所に
 繰り返しになりますが、dry-runモードで意図した変更・通知がなされることを事前に確認してから実行してください。
 `--dry-run=false` オプションを明示的につけることで、本番モードでの実行、つまり、実際にSlackのプロフィールの更新、ユーザーへの通知が行われます。
 ```
-$ node index.js ./update-profiles-md.csv --save-full-log　--dry-run=false
+$ node index.js ./update-profiles.csv --save-full-log　--dry-run=false
 =============== YOU ARE IN PRODUCTION MODE ===============
 This is NOT dry-run mode. Slack POST methods will be called.
 log continue......

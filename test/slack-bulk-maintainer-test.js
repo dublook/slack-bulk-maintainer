@@ -15,9 +15,10 @@ test.afterEach(t => {
 })
 
 test('Maintainer hold slack token', async t => {
-  t.plan(1);
+  t.plan(2);
   const maintainer = new SlackBulkMaintainer('dummy-token');
   t.is(maintainer.webApi.token, 'dummy-token');
+  t.is(maintainer.dryRun, false);
 });
 
 test('Update slack users profiles', async t => {
@@ -264,6 +265,20 @@ test('Notify updated user', async t => {
   });
   t.deepEqual(messageArg.attachments[2], {
     title: 'Slack運用に関する問い合わせ（TODO)'
+  });
+});
+
+test('POST methods will not be executed on dry-run mode', async t => {
+  t.plan(3);
+  const maintainer = new SlackBulkMaintainer('dummy-token', true);
+  t.is(maintainer.dryRun, true);
+  t.deepEqual(await maintainer.webApi.users.profile.set({}), {
+    ok: true,
+    dryRun: true
+  });
+  t.deepEqual(await maintainer.webApi.chat.postMessage({}), {
+    ok: true,
+    dryRun: true
   });
 });
 

@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "@slack/client": "^4.2.2",
+    "argv": "0.0.2",
     "csv-parse": "^2.4.0"
   },
   "devDependencies": {

@@ -2,8 +2,21 @@ const { WebClient } = require('@slack/client')
 const fs = require('fs');
 const csvParse = require('csv-parse/lib/sync');
 
-function SlackBulkMaintainer(token) {
-  this.webApi = new WebClient(token)
+function SlackBulkMaintainer(token, dryRun) {
+  this.webApi = new WebClient(token);
+  this.dryRun = !!dryRun;
+  this.makeDryRunMode();
+}
+
+SlackBulkMaintainer.prototype.makeDryRunMode = function() {
+  if (this.dryRun) {
+    const dryRunResponse = Promise.resolve({
+      ok: true,
+      dryRun: true
+    });
+    this.webApi.users.profile.set = () => dryRunResponse;
+    this.webApi.chat.postMessage = () => dryRunResponse;
+  }
 }
 
 SlackBulkMaintainer.prototype.parseParamFromCsv = function (csvPath) {
@@ -79,19 +92,22 @@ SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {
   const updateQuery = updateResult.updateQuery;
   const email = updateQuery.csvParam.profile.email;
   const apiCallResponse = updateResult.apiCallResponse;
+  const dryRunMsg = this.dryRun ? '[DRY RUN] ' : '';
   if (updateQuery.skipCallApi) {
-    console.log(`${email} の更新をスキップしました。` +
+    console.log(`${dryRunMsg}${email} の更新をスキップしました。` +
       `${updateResult.updateQuery.skipReasons[0].message}`);
   } else if (!apiCallResponse.ok) {
-    console.log(`${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
+    console.log(`${dryRunMsg}${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
   } else if (apiCallResponse.ok) {
-    console.log(`${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
+    console.log(`${dryRunMsg}${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
   }
   return Promise.resolve(updateResult);
 }
 
 SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
-  // TODO implement
+  const dryRunMsg = this.dryRun ? '[DRY RUN] ' : '';
+  const email = updateResult.updateQuery.currentUserInfo.profile.email;
+
   if (updateResult.apiCallResponse
     && updateResult.apiCallResponse.ok) {
     // TODO pass message part via parameter or something like that
@@ -140,6 +156,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
     };
     return this.webApi.chat.postMessage(message)
       .then(response => {
+        console.log(`${dryRunMsg}${email} に更新完了通知を送信しました`);
         updateResult.notification = {
           response: response,
           request: message
@@ -147,6 +164,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
         return Promise.resolve(updateResult)
       })
       .catch(error => {
+        console.log(`${dryRunMsg}${email} への更新完了通知送信時にエラーが発生しました`);
         // TODO switch handling based on error type
         updateResult.notification = {
           response: error,
@@ -155,6 +173,7 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
         return Promise.resolve(updateResult)
       });
   } else {
+    console.log(`${dryRunMsg}${email} のプロフィール更新が行なわれなかったため、通知未送信です`);
     updateResult.notification = {};
     return Promise.resolve(updateResult);
   }

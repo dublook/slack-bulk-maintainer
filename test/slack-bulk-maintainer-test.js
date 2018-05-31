@@ -21,38 +21,33 @@ test('Maintainer hold slack token', async t => {
 });
 
 test('Update slack users profiles', async t => {
-  t.plan(3); // FIXME include td assertions
+  t.plan(4);
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
+
+  const userList = dummyUserList();
 
   td.replace(maintainer.webApi.users.profile, 'set');
   const profileSet = maintainer.webApi.users.profile.set;
   td.when(profileSet(td.matchers.anything()))
-    .thenResolve({ok: true});
+    .thenResolve({
+      ok: true
+    });
+  const profileSetExplain = td.explain(profileSet);
 
   const filePath = 'test/resoures/update-profiles.csv';
-  const responses = await maintainer.updateProfilesFromCsv(filePath)
+  const responses = await maintainer.updateProfilesFromCsv(filePath, userList.members);
 
   t.is(responses.length, 2);
-  t.is(responses[0].ok, true);
-  t.is(responses[1].ok, true);
+  t.is(responses[0].updateQuery.skipCallApi, true);
 
-  // const explain = td.explain(maintainer.webApi.users.profile.set);
-  // console.log(JSON.stringify(explain));
-  /* FIXME
-  td.verify(profileSet({
-    'user': 'user1',
-    'profile': {
-      'status_emoji': ':sunglasses:'
-    }
-  }));
-  td.verify(profileSet({
-    'user': 'user2',
+  t.is(profileSetExplain.calls.length, 1);
+  t.deepEqual(profileSetExplain.calls[0].args, [{
+    'user': 'USERID2',
     'profile': {
       'status_emoji': ':sleepy:'
     }
-  }));
-  */
+  }]);
 });
 
 test('Fetch user list', async t => {
@@ -77,7 +72,7 @@ test('Find user info by email', t => {
 });
 
 test('Build update query', t => {
-  t.plan(6);
+  t.plan(7);
 
   const maintainer = new SlackBulkMaintainer('dummy-token');
   const csvParam = {
@@ -89,6 +84,7 @@ test('Build update query', t => {
   }
   const query = maintainer.buildUpdateQuery(csvParam, dummyUserList().members);
   t.is(query.skipCallApi, false);
+  t.deepEqual(query.csvParam, csvParam);
   t.is(query.apiParam.user, 'USERID2');
   t.is(query.apiParam.profile.display_name, 'JIRO-T');
   t.is(query.apiParam.profile.real_name, undefined); // skiped
@@ -170,6 +166,105 @@ test('Build update query for admin user, skipped due to no user found for email'
   t.is(query.apiParam.profile, null);
   t.deepEqual(query.skippedColumns, []);
   t.is(query.currentUserInfo, null);
+});
+
+test('Parse update param from CSV', t => {
+  t.plan(3);
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const filePath = 'test/resoures/update-profiles.csv';
+  const csvParams = maintainer.parseParamFromCsv(filePath);
+
+  t.is(csvParams.length, 2);
+  let i = 0;
+  t.deepEqual(csvParams[i++].profile, {
+    status_emoji: ':sunglasses:',
+    email: 'suzuki-ichiro1@example.com'
+  });
+  t.deepEqual(csvParams[i++].profile, {
+    status_emoji: ':sleepy:',
+    email: 'jiro@example.com'
+  })
+});
+
+test('Notify updated user', async t => {
+  t.plan(8);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  td.replace(maintainer.webApi.chat, 'postMessage');
+  const postMessage = maintainer.webApi.chat.postMessage;
+  td.when(postMessage(td.matchers.anything()))
+    .thenResolve({ ok: true });
+  const postMessageExplain = td.explain(postMessage);
+
+  const updateQuery = {
+    "skipCallApi": false,
+    "skipReasons": [],
+    "skippedColumns": [],
+    "currentUserInfo": {
+      "id": "USERID2",
+      "name": "jiro",
+      "real_name": "田中 二郎",
+      "profile": {
+        "real_name": "田中 二郎",
+        "display_name": "JIRO",
+        "status_text": "",
+        "status_emoji": "",
+      },
+      "is_admin": false,
+      "is_owner": false,
+      "is_primary_owner": false,
+      "is_restricted": false,
+      "is_ultra_restricted": false,
+      "is_bot": false,
+      "updated": 1527585010,
+      "is_app_user": false,
+      "has_2fa": false
+    },
+    "csvParam": {
+      "profile": {
+        "email": "jiro@example.com",
+        "status_emoji": ":sleepy:"
+      }
+    },
+    "apiParam": {
+      "user": "USERID2",
+      "profile": {
+        "status_emoji": ":sleepy:"
+      }
+    }
+  };
+
+  const updateResult = {
+    apiCallResponse: { ok: true },
+    updateQuery: updateQuery
+  }
+
+  const response = await maintainer.notifyUpdatedUser(updateResult);
+
+  t.is(response.notification.response.ok, true);
+  t.is(postMessageExplain.calls.length, 1, 'postMessageExplain must be called once');
+  const messageArg = postMessageExplain.calls[0].args[0];
+  // TODO t.is(messageArg.text, '');
+  t.is(messageArg.channel, 'USERID2');
+  t.is(messageArg.as_user, false);
+  t.is(messageArg.icon_url, 'https://slack-files2.s3-us-west-2.amazonaws.com/avatars/2016-04-18/35486615538_c9bc6670992704e477bd_88.png');
+  t.deepEqual(messageArg.attachments[0], {
+    color: '#81C784',
+    fields: [
+      {
+        short: false,
+        title: 'status_emoji',
+        value: `変更前: \n変更後: :sleepy:`,
+      },
+    ],
+  });
+  t.deepEqual(messageArg.attachments[1], {
+    title: 'Slackの運用改善に関する周知',
+    title_link: 'https://mediado.slack.com/archives/C03TWFV95/p1527578576000324',
+  });
+  t.deepEqual(messageArg.attachments[2], {
+    title: 'Slack運用に関する問い合わせ（TODO)'
+  });
 });
 
 function dummyUserList() {

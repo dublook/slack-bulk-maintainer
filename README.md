@@ -3,6 +3,9 @@
 
 企業においてSlackを利用する時に便利な一括更新などの機能を提供する
 
+## 通知イメージ
+![](https://i.imgur.com/OWcqOX8.png)
+
 ## 使い方
 ### SlackのLegacy tokenを取得
 SlackのAPIを実行するため、Legacy tokenを使用しています。取得には管理者の許可が必要になります。

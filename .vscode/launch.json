@@ -8,7 +8,12 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
-      "program": "${workspaceFolder}/index.js"
+      "program": "${workspaceFolder}/index.js",
+      "args": [
+        "update-profiles.csv",
+        "--save-full-log"
+      ],
+      "envFile": "${workspaceFolder}/.env"
     },
     {
       "type": "node",

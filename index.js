@@ -5,8 +5,9 @@ const args = (function() {
   argv.option({
     name: 'dry-run',
     type: 'boolean',
-    description: '[Optional] No POST method of Slack API will not be executed.',
-    example: "'node index.js update-profile.csv --dry-run'"
+    description: '[default: true] No POST method of Slack API will not be executed. '
+      + 'To disable dry-run mode, specify "--dry-run=false" option expressly.',
+    example: "'node index.js update-profile.csv --dry-run=false'"
   });
   argv.option({
     name: 'save-full-log',

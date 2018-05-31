@@ -2,8 +2,9 @@ const { WebClient } = require('@slack/client')
 const fs = require('fs');
 const csvParse = require('csv-parse/lib/sync');
 
-function SlackBulkMaintainer(token) {
-  this.webApi = new WebClient(token)
+function SlackBulkMaintainer(token, dryRun) {
+  this.webApi = new WebClient(token);
+  this.dryRun = !!dryRun;
 }
 
 SlackBulkMaintainer.prototype.parseParamFromCsv = function (csvPath) {

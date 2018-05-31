@@ -15,9 +15,10 @@ test.afterEach(t => {
 })
 
 test('Maintainer hold slack token', async t => {
-  t.plan(1);
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  t.plan(2);
+  const maintainer = new SlackBulkMaintainer('dummy-token', true);
   t.is(maintainer.webApi.token, 'dummy-token');
+  t.is(maintainer.dryRun, true);
 });
 
 test('Update slack users profiles', async t => {

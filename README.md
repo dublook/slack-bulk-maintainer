@@ -1,5 +1,5 @@
 # slack-bulk-maintainer
-[![Build Status](https://travis-ci.com/dublook/slack-bulk-maintainer.svg?branch=master)](https://travis-ci.com/dublook/slack-bulk-maintainer)
+[![Build Status](https://travis-ci.com/dublook/slack-bulk-maintainer.svg?branch=master)](https://travis-ci.com/dublook/slack-bulk-maintainer)[![Coverage Status](https://coveralls.io/repos/github/dublook/slack-bulk-maintainer/badge.svg?branch=master)](https://coveralls.io/github/dublook/slack-bulk-maintainer?branch=master)
 
 企業においてSlackを利用する時に便利な一括更新などの機能を提供する
 

@@ -14,9 +14,12 @@
     "testdouble": "^3.8.1"
   },
   "scripts": {
-    "test": "ava",
+    "test": "nyc ava --verbose",
     "changes": "bin/changes.sh",
-    "changes:latest": "ls -t log/ | head -1 | sed 's:^:log/:g' | xargs bin/changes.sh"
+    "changes:latest": "ls -t log/ | head -1 | sed 's:^:log/:g' | xargs bin/changes.sh",
+    "coverage": "nyc --reporter=lcov --reporter=text-lcov npm test",
+    "coverage:report": "nyc --reporter=lcov --reporter=text-lcov",
+    "coverage:check": "nyc check-coverage --statements 90 --branches 75 --functions 90 --lines 90"
   },
   "repository": {
     "type": "git",

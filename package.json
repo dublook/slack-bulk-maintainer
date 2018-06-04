@@ -13,7 +13,9 @@
     "testdouble": "^3.8.1"
   },
   "scripts": {
-    "test": "ava"
+    "test": "ava",
+    "changes": "bin/changes.sh",
+    "changes:latest": "ls -t log/ | head -1 | sed 's:^:log/:g' | xargs bin/changes.sh"
   },
   "repository": {
     "type": "git",

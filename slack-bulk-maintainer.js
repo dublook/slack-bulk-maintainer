@@ -16,6 +16,7 @@ function SlackBulkMaintainer(token, dryRun) {
     profileSet: Object.assign({}, summaryTemplate),
     postMessage: Object.assign({}, summaryTemplate)
   }
+  this.authUser = null;
 }
 
 SlackBulkMaintainer.prototype.makeDryRunMode = function() {
@@ -198,6 +199,17 @@ SlackBulkMaintainer.prototype.notifyUpdatedUser = function(updateResult) {
 
 SlackBulkMaintainer.prototype.fetchUserList = function() {
   return this.webApi.users.list();
+}
+
+SlackBulkMaintainer.prototype.fetchAuthUser = function() {
+  return this.webApi.auth.test().then(authUser => {
+    if (authUser.ok) {
+      this.authUser = authUser;
+      return Promise.resolve(authUser);
+    } else {
+      return Promise.reject(authUser);
+    }
+  });
 }
 
 SlackBulkMaintainer.prototype.findUserByMail = function(email, userList) {

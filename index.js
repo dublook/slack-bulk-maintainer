@@ -24,32 +24,69 @@ const args = (function() {
     return;
   }
   const dryRun = !(options['dry-run'] === false);
+  const saveFullLog = !!options['save-full-log'];
+
+  initialize(slackToken, dryRun)
+    .then(maintainer => {
+      maintainer.fetchUserList().then(userList => {
+        return maintainer.updateProfilesFromCsv(csvFilePath, userList.members)
+          .then(res => {
+            console.log(maintainer.summary);
+            if (saveFullLog) {
+              console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
+              const logContent = JSON.stringify(res, null, 2);
+              const logDir = `log/${Date.now()}.log`;
+              require('fs').writeFileSync(logDir, logContent);
+              console.log(`${dryRun?'[DRY RUN] ':''}See full log in ${logDir}`);
+            }
+            return res;
+          });
+        })
+        .catch(error => {
+          console.error('Some error happens');
+          console.log(maintainer.summary);
+          console.error(JSON.stringify(error, null, 2));
+        })
+    })
+})(process.env.SLACK_TOKEN, args.targets[0], args.options)
+
+function initialize(slackToken, dryRun) {
+  const maintainer = new SlackBulkMaintainer(slackToken, dryRun);
   if (dryRun) {
     console.log('[DRY RUN] dry-run mode is ON. No slack POST method will be called. '
       + 'To disable dry-run mode, specify "--dry-run=false" option expressly.');
+    return Promise.resolve(maintainer);
   } else {
+    const waitSecs = 5;
     console.log('=============== YOU ARE IN PRODUCTION MODE ===============');
     console.log('This is NOT dry-run mode. Slack POST methods will be called.');
+    console.log(`Update will be began in ${waitSecs} sec. Type Ctrl-C to cancel.`);
+    console.log();
+    return countdown(waitSecs)
+      .then(() => console.log('Update process has just begun.'))
+      .then(() => maintainer);
   }
-  const saveFullLog = !!options['save-full-log'];
-  const maintainer = new SlackBulkMaintainer(slackToken, dryRun);
-  maintainer.fetchUserList().then(userList => {
-    return maintainer.updateProfilesFromCsv(csvFilePath, userList.members)
-      .then(res => {
-        console.log(maintainer.summary);
-        if (saveFullLog) {
-          console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
-          const logContent = JSON.stringify(res, null, 2);
-          const logDir = `log/${Date.now()}.log`;
-          require('fs').writeFileSync(logDir, logContent);
-          console.log(`${dryRun?'[DRY RUN] ':''}See full log in ${logDir}`);
-        }
-        return res;
-      });
-  })
-  .catch(error => {
-    console.error('Some error happens');
-    console.log(maintainer.summary);
-    console.error(JSON.stringify(error, null, 2));
-  })
-})(process.env.SLACK_TOKEN, args.targets[0], args.options)
+}
+
+function wait(waitSecs) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve(waitSecs);
+    }, waitSecs * 1000)
+  });
+}
+
+function countdown(sec) {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  process.stdout.write(sec.toString());
+  const nextSec = sec - 1;
+  if (nextSec < 0) {
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0);
+    return Promise.resolve(sec);
+  } else {
+    return wait(1).then(() => countdown(nextSec));
+  }
+}
+

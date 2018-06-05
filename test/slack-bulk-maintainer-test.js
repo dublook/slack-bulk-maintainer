@@ -302,6 +302,18 @@ test('Fetch token user', async t => {
   t.deepEqual(maintainer.authUser, user);
 });
 
+test('Is Auth User', t => {
+  t.plan(3);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+
+  t.is(maintainer.isAuthUser('foo'), false, 'When no auth user info');
+
+  maintainer.authUser = { user: 'foo' };
+  t.is(maintainer.isAuthUser('foo'), true, 'Same user name provided');
+  t.is(maintainer.isAuthUser('bar'), false, 'Different user name provided');
+});
+
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);

@@ -28,25 +28,28 @@ const args = (function() {
 
   initialize(slackToken, dryRun)
     .then(maintainer => {
-      maintainer.fetchUserList().then(userList => {
-        return maintainer.updateProfilesFromCsv(csvFilePath, userList.members)
-          .then(res => {
-            console.log(maintainer.summary);
-            if (saveFullLog) {
-              console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
-              const logContent = JSON.stringify(res, null, 2);
-              const logDir = `log/${Date.now()}.log`;
-              require('fs').writeFileSync(logDir, logContent);
-              console.log(`${dryRun?'[DRY RUN] ':''}See full log in ${logDir}`);
-            }
-            return res;
-          });
+      // maintainer.fetchAuthUser().then(console.log);
+      // return;
+      maintainer.fetchAuthUser()
+        .then(authUser => console.log(`${dryRun?'[DRY RUN] ':''}Executed with legacy token of user ${authUser.user}`))
+        .then(() => maintainer.fetchUserList())
+        .then(userList => maintainer.updateProfilesFromCsv(csvFilePath, userList.members))
+        .then(updateResult => {
+          console.log(maintainer.summary);
+          if (saveFullLog) {
+            console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
+            const logContent = JSON.stringify(updateResult, null, 2);
+            const logDir = `log/${Date.now()}.log`;
+            require('fs').writeFileSync(logDir, logContent);
+            console.log(`${dryRun?'[DRY RUN] ':''}See full log in ${logDir}`);
+          }
+          return updateResult;
         })
         .catch(error => {
           console.error('Some error happens');
           console.log(maintainer.summary);
           console.error(JSON.stringify(error, null, 2));
-        })
+        });
     })
 })(process.env.SLACK_TOKEN, args.targets[0], args.options)
 

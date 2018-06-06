@@ -15,6 +15,7 @@
   },
   "scripts": {
     "test": "nyc ava --verbose",
+    "watch:test": "nyc ava --watch  --verbose",
     "changes": "bin/changes.sh",
     "changes:latest": "ls -t log/ | head -1 | sed 's:^:log/:g' | xargs bin/changes.sh",
     "coverage": "nyc --reporter=lcov --reporter=text-lcov npm test",

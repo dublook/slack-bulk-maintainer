@@ -18,40 +18,40 @@ const args = (function() {
   return argv.run();
 })();
 
-(function (slackToken, csvFilePath, options) {
+(async function (slackToken, csvFilePath, options) {
   if (!slackToken || slackToken.length === 0) {
     console.error('slack token cannot be empty.');
+    console.error('Set env variable like "export SLACK_TOKEN=xxxx" in bash.');
     return;
   }
   const dryRun = !(options['dry-run'] === false);
   const saveFullLog = !!options['save-full-log'];
 
-  initialize(slackToken, dryRun)
-    .then(maintainer => {
-      // maintainer.fetchAuthUser().then(console.log);
-      // return;
-      maintainer.fetchAuthUser()
-        .then(authUser => console.log(`${dryRun?'[DRY RUN] ':''}Executed with legacy token of user ${authUser.user}`))
-        .then(() => maintainer.fetchUserList())
-        .then(userList => maintainer.updateProfilesFromCsv(csvFilePath, userList.members))
-        .then(updateResult => {
-          console.log(maintainer.summary);
-          if (saveFullLog) {
-            console.log(`${dryRun?'[DRY RUN] ':''}Try to save full log`);
-            const logContent = JSON.stringify(updateResult, null, 2);
-            const logDir = `log/${Date.now()}.log`;
-            require('fs').writeFileSync(logDir, logContent);
-            console.log(`${dryRun?'[DRY RUN] ':''}See full log in ${logDir}`);
-          }
-          return updateResult;
-        })
-        .catch(error => {
-          console.error('Some error happens');
-          console.log(maintainer.summary);
-          console.error(JSON.stringify(error, null, 2));
-        });
-    })
+  try {
+    const maintainer = await initialize(slackToken, dryRun);
+    const authUser = await maintainer.fetchAuthUser();
+    console.log(`${dryRun?'[DRY RUN] ':''}Executed with legacy token of user ${authUser.user}`);
+    const userList = await maintainer.fetchUserList();
+    const updateResult = await maintainer.updateProfilesFromCsv(csvFilePath, userList.members);
+    leaveResultLog(maintainer, saveFullLog, updateResult);
+  } catch (error) {
+    console.error('Some error happens');
+    console.log(maintainer.summary);
+    console.error(JSON.stringify(error, null, 2));
+  }
 })(process.env.SLACK_TOKEN, args.targets[0], args.options)
+
+function leaveResultLog(maintainer, saveFullLog, updateResult) {
+  console.log(maintainer.summary);
+  if (saveFullLog) {
+    const dryRun = maintainer.dryRun;
+    console.log(`${dryRun ? '[DRY RUN] ' : ''}Try to save full log`);
+    const logContent = JSON.stringify(updateResult, null, 2);
+    const logDir = `log/${Date.now()}.log`;
+    require('fs').writeFileSync(logDir, logContent);
+    console.log(`${dryRun ? '[DRY RUN] ' : ''}See full log in ${logDir}`);
+  }
+}
 
 function initialize(slackToken, dryRun) {
   const maintainer = new SlackBulkMaintainer(slackToken, dryRun);

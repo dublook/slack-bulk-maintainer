@@ -1,4 +1,5 @@
 const SlackBulkMaintainer = require('./slack-bulk-maintainer.js');
+const { WebClient } = require('@slack/client')
 const argv = require('argv');
 require('dotenv').config();
 
@@ -32,7 +33,8 @@ const args = (function() {
 
   try {
     await cliPrologue(dryRun, logger);
-    const maintainer = new SlackBulkMaintainer(slackToken, dryRun, logger);
+    const slackClient = provideSlackWebClient(slackToken, dryRun);
+    const maintainer = new SlackBulkMaintainer(slackClient, logger);
     const authUser = await maintainer.fetchAuthUser();
     logger.log(`Executed with legacy token of user ${authUser.user}`);
     const userList = await maintainer.fetchUserList();
@@ -46,7 +48,6 @@ const args = (function() {
 function leaveResultLog(maintainer, saveFullLog, updateResult, logger) {
   logger.log(maintainer.summary);
   if (saveFullLog) {
-    const dryRun = maintainer.dryRun;
     logger.log('Try to save full log');
     const logContent = JSON.stringify(updateResult, null, 2);
     const logDir = `log/${Date.now()}.log`;
@@ -106,6 +107,38 @@ function provideLogger(dryRun) {
       log: console.log,
       error: console.error,
       dryRun: false
+    }
+  }
+}
+
+function provideSlackWebClient(token, dryRun) {
+  const client = new WebClient(token);
+
+  let profileSet, chatPostMessage;
+  if (dryRun) {
+    const dryRunResponse = {
+      ok: true,
+      dryRun: true
+    };
+    profileSet = async () => dryRunResponse;
+    chatPostMessage = async () => dryRunResponse;
+  } else {
+    profileSet = client.users.profile.set;
+    chatPostMessage = client.chat.postMessage;
+  }
+
+  return {
+    auth: {
+      test: client.auth.test
+    },
+    users: {
+      profile: {
+        set: profileSet,
+      },
+      list: client.users.list
+    },
+    chat: {
+      postMessage: chatPostMessage
     }
   }
 }

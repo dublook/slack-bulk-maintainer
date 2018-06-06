@@ -1,12 +1,9 @@
-const { WebClient } = require('@slack/client')
 const fs = require('fs');
 const csvParse = require('csv-parse/lib/sync');
 
 class SlackBulkMaintainer {
-  constructor(token, dryRun, logger){
-    this.webApi = new WebClient(token);
-    this.dryRun = !!dryRun;
-    this.makeDryRunMode();
+  constructor(slackWebClient, logger){
+    this.webApi = slackWebClient;
     const summaryTemplate = {
       try: 0,
       skip: 0,
@@ -19,17 +16,6 @@ class SlackBulkMaintainer {
     }
     this.authUser = null;
     this.logger = logger || { log: () => undefined, error: () => undefined };
-  }
-
-  makeDryRunMode() {
-    if (this.dryRun) {
-      const dryRunResponse = Promise.resolve({
-        ok: true,
-        dryRun: true
-      });
-      this.webApi.users.profile.set = () => dryRunResponse;
-      this.webApi.chat.postMessage = () => dryRunResponse;
-    }
   }
 
   parseParamFromCsv(csvPath) {

@@ -76,31 +76,30 @@ SlackBulkMaintainer.prototype.updateProfilesFromCsv = function (csvPath, userLis
   return Promise.all(webApiRequests);
 }
 
-SlackBulkMaintainer.prototype.updateProfileByQuery = function(updateQuery) {
+SlackBulkMaintainer.prototype.updateProfileByQuery = async function(updateQuery) {
   this.summary.profileSet.try++;
   if (updateQuery.skipCallApi) {
     this.summary.profileSet.skip++;
-    return Promise.resolve({
+    return {
       apiCallResponse: {},
       updateQuery: updateQuery
-    });
+    };
   }
-  return this.webApi.users.profile.set(updateQuery.apiParam)
-    .then(response => {
-      this.summary.profileSet.success++;
-      return Promise.resolve({
-        apiCallResponse: response,
-        updateQuery: updateQuery
-      })
-    })
-    .catch(error => {
-      // TODO switch handling based on error type
-      this.summary.profileSet.error++;
-      return Promise.resolve({
-        apiCallResponse: error,
-        updateQuery: updateQuery
-      })
-    });
+  try {
+    const response = await this.webApi.users.profile.set(updateQuery.apiParam);
+    this.summary.profileSet.success++;
+    return {
+      apiCallResponse: response,
+      updateQuery: updateQuery
+    }
+  } catch (error) {
+    // TODO switch handling based on error type
+    this.summary.profileSet.error++;
+    return {
+      apiCallResponse: error,
+      updateQuery: updateQuery
+    }
+  }
 }
 
 SlackBulkMaintainer.prototype.leaveUpdateProfileLog = function(updateResult) {

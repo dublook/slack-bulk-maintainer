@@ -6,7 +6,8 @@
   "dependencies": {
     "@slack/client": "^4.2.2",
     "argv": "0.0.2",
-    "csv-parse": "^2.4.0"
+    "csv-parse": "^2.4.0",
+    "dotenv": "^6.0.0"
   },
   "devDependencies": {
     "ava": "^0.25.0",

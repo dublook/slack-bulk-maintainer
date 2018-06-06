@@ -1,5 +1,6 @@
 const SlackBulkMaintainer = require('./slack-bulk-maintainer.js');
 const argv = require('argv');
+require('dotenv').config();
 
 const args = (function() {
   argv.option({

@@ -16,6 +16,7 @@ function SlackBulkMaintainer(token, dryRun) {
     profileSet: Object.assign({}, summaryTemplate),
     postMessage: Object.assign({}, summaryTemplate)
   }
+  this.authUser = null;
 }
 
 SlackBulkMaintainer.prototype.makeDryRunMode = function() {
@@ -200,8 +201,23 @@ SlackBulkMaintainer.prototype.fetchUserList = function() {
   return this.webApi.users.list();
 }
 
+SlackBulkMaintainer.prototype.fetchAuthUser = function() {
+  return this.webApi.auth.test().then(authUser => {
+    if (authUser.ok) {
+      this.authUser = authUser;
+      return Promise.resolve(authUser);
+    } else {
+      return Promise.reject(authUser);
+    }
+  });
+}
+
 SlackBulkMaintainer.prototype.findUserByMail = function(email, userList) {
   return userList.find(user => user.profile.email === email);
+}
+
+SlackBulkMaintainer.prototype.isAuthUser = function(userName) {
+  return !!this.authUser && this.authUser.user === userName;
 }
 
 SlackBulkMaintainer.prototype.buildUpdateQuery = function(csvParam, userList) {
@@ -224,7 +240,7 @@ SlackBulkMaintainer.prototype.buildUpdateQuery = function(csvParam, userList) {
         message: '指定されたメールアドレスを持つSlackユーザーが見つかりませんでした'
       }]
     });
-  } else if (userInfo.is_admin == true) {
+  } else if (!this.isAuthUser(userInfo.name) && userInfo.is_admin == true) {
     return Object.assign(query, {
       skipReasons: [{
         reason: 'admin_user_cannot_be_updated',

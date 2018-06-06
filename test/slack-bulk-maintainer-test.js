@@ -282,6 +282,38 @@ test('POST methods will not be executed on dry-run mode', async t => {
   });
 });
 
+test('Fetch token user', async t => {
+  t.plan(2);
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const authTest = td.replace(maintainer.webApi.auth, 'test');
+  const user = {
+    "ok": true,
+    "url": "https:\/\/xxxx.slack.com\/",
+    "team": "XXXX Team",
+    "user": "shohei_otani",
+    "team_id": "TEAMID1",
+    "user_id": "USERID1"
+  };
+  td.when(authTest()).thenResolve(user);
+  const authTestExplanation = td.explain(authTest);
+
+  const response = await maintainer.fetchAuthUser();
+  t.deepEqual(response, user);
+  t.deepEqual(maintainer.authUser, user);
+});
+
+test('Is Auth User', t => {
+  t.plan(3);
+
+  const maintainer = new SlackBulkMaintainer('dummy-token');
+
+  t.is(maintainer.isAuthUser('foo'), false, 'When no auth user info');
+
+  maintainer.authUser = { user: 'foo' };
+  t.is(maintainer.isAuthUser('foo'), true, 'Same user name provided');
+  t.is(maintainer.isAuthUser('bar'), false, 'Different user name provided');
+});
+
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);

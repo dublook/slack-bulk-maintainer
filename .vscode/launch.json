@@ -12,8 +12,7 @@
       "args": [
         "update-profiles.csv",
         "--save-full-log"
-      ],
-      "envFile": "${workspaceFolder}/.env"
+      ]
     },
     {
       "type": "node",

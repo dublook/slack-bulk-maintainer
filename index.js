@@ -20,55 +20,54 @@ const args = (function() {
 })();
 
 (async function (slackToken, csvFilePath, options) {
-  if (!slackToken || slackToken.length === 0) {
-    console.error('slack token cannot be empty.');
-    console.error('Set env variable like "export SLACK_TOKEN=xxxx" in bash.');
-    return;
-  }
   const dryRun = !(options['dry-run'] === false);
   const saveFullLog = !!options['save-full-log'];
 
+  const logger = provideLogger(dryRun);
+  if (!slackToken || slackToken.length === 0) {
+    logger.error('slack token cannot be empty.');
+    logger.error('Set env variable like "export SLACK_TOKEN=xxxx" in bash.');
+    return;
+  }
+
   try {
-    const maintainer = await initialize(slackToken, dryRun);
+    await cliPrologue(dryRun, logger);
+    const maintainer = new SlackBulkMaintainer(slackToken, dryRun, logger);
     const authUser = await maintainer.fetchAuthUser();
-    console.log(`${dryRun?'[DRY RUN] ':''}Executed with legacy token of user ${authUser.user}`);
+    logger.log(`Executed with legacy token of user ${authUser.user}`);
     const userList = await maintainer.fetchUserList();
     const updateResult = await maintainer.updateProfilesFromCsv(csvFilePath, userList.members);
-    leaveResultLog(maintainer, saveFullLog, updateResult);
+    leaveResultLog(maintainer, saveFullLog, updateResult, logger);
   } catch (error) {
-    console.error('Some error happens');
-    console.log(maintainer.summary);
-    console.error(JSON.stringify(error, null, 2));
+    logger.error(error);
   }
 })(process.env.SLACK_TOKEN, args.targets[0], args.options)
 
-function leaveResultLog(maintainer, saveFullLog, updateResult) {
-  console.log(maintainer.summary);
+function leaveResultLog(maintainer, saveFullLog, updateResult, logger) {
+  logger.log(maintainer.summary);
   if (saveFullLog) {
     const dryRun = maintainer.dryRun;
-    console.log(`${dryRun ? '[DRY RUN] ' : ''}Try to save full log`);
+    logger.log('Try to save full log');
     const logContent = JSON.stringify(updateResult, null, 2);
     const logDir = `log/${Date.now()}.log`;
     require('fs').writeFileSync(logDir, logContent);
-    console.log(`${dryRun ? '[DRY RUN] ' : ''}See full log in ${logDir}`);
+    logger.log(`See full log in ${logDir}`);
   }
 }
 
-function initialize(slackToken, dryRun) {
-  const maintainer = new SlackBulkMaintainer(slackToken, dryRun);
+function cliPrologue(dryRun, logger) {
   if (dryRun) {
-    console.log('[DRY RUN] dry-run mode is ON. No slack POST method will be called. '
+    logger.log('dry-run mode is ON. No slack POST method will be called. '
       + 'To disable dry-run mode, specify "--dry-run=false" option expressly.');
-    return Promise.resolve(maintainer);
+    return Promise.resolve();
   } else {
     const waitSecs = 5;
-    console.log('=============== YOU ARE IN PRODUCTION MODE ===============');
-    console.log('This is NOT dry-run mode. Slack POST methods will be called.');
-    console.log(`Update will be began in ${waitSecs} sec. Type Ctrl-C to cancel.`);
-    console.log();
+    logger.log('=============== YOU ARE IN PRODUCTION MODE ===============');
+    logger.log('This is NOT dry-run mode. Slack POST methods will be called.');
+    logger.log(`Update will be began in ${waitSecs} sec. Type Ctrl-C to cancel.`);
+    logger.log();
     return countdown(waitSecs)
-      .then(() => console.log('Update process has just begun.'))
-      .then(() => maintainer);
+      .then(() => logger.log('Update process has just begun.'));
   }
 }
 
@@ -94,3 +93,19 @@ function countdown(sec) {
   }
 }
 
+function provideLogger(dryRun) {
+  if (dryRun) {
+    const prefix = '[DRY RUN]';
+    return {
+      log: (content) => console.log(prefix, content),
+      error: (content) => console.error(prefix, content),
+      dryRun: true
+    }
+  } else {
+    return {
+      log: console.log,
+      error: console.error,
+      dryRun: false
+    }
+  }
+}

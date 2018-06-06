@@ -3,7 +3,7 @@ const fs = require('fs');
 const csvParse = require('csv-parse/lib/sync');
 
 class SlackBulkMaintainer {
-  constructor(token, dryRun){
+  constructor(token, dryRun, logger){
     this.webApi = new WebClient(token);
     this.dryRun = !!dryRun;
     this.makeDryRunMode();
@@ -18,6 +18,7 @@ class SlackBulkMaintainer {
       postMessage: Object.assign({}, summaryTemplate)
     }
     this.authUser = null;
+    this.logger = logger || { log: () => undefined, error: () => undefined };
   }
 
   makeDryRunMode() {
@@ -63,6 +64,7 @@ class SlackBulkMaintainer {
       });
     return csvParams;
   }
+
   updateProfilesFromCsv (csvPath, userList) {
     const webApiRequests = this.parseParamFromCsv(csvPath)
       .map((csvParam) => {
@@ -75,7 +77,6 @@ class SlackBulkMaintainer {
       });
     return Promise.all(webApiRequests);
   }
-
 
   async updateProfileByQuery(updateQuery) {
     this.summary.profileSet.try++;
@@ -107,20 +108,18 @@ class SlackBulkMaintainer {
     const updateQuery = updateResult.updateQuery;
     const email = updateQuery.csvParam.profile.email;
     const apiCallResponse = updateResult.apiCallResponse;
-    const dryRunMsg = this.dryRun ? '[DRY RUN] ' : '';
     if (updateQuery.skipCallApi) {
-      console.log(`${dryRunMsg}${email} の更新をスキップしました。` +
+      this.logger.log(`${email} の更新をスキップしました。` +
         `${updateResult.updateQuery.skipReasons[0].message}`);
     } else if (!apiCallResponse.ok) {
-      console.log(`${dryRunMsg}${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
+      this.logger.log(`${email} の更新時にエラーが発生しました, code=${apiCallResponse.code}, error=${apiCallResponse.data.error}`);
     } else if (apiCallResponse.ok) {
-      console.log(`${dryRunMsg}${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
+      this.logger.log(`${email} のプロフィールを更新しました, ${JSON.stringify(updateQuery.apiParam)}`);
     }
     return Promise.resolve(updateResult);
   }
 
   notifyUpdatedUser(updateResult) {
-    const dryRunMsg = this.dryRun ? '[DRY RUN] ' : '';
     const email = updateResult.updateQuery.csvParam.profile.email;
 
     if (updateResult.apiCallResponse
@@ -173,7 +172,7 @@ class SlackBulkMaintainer {
       return this.webApi.chat.postMessage(message)
         .then(response => {
           this.summary.postMessage.success++;
-          console.log(`${dryRunMsg}${email} に更新完了通知を送信しました`);
+          this.logger.log(`${email} に更新完了通知を送信しました`);
           updateResult.notification = {
             response: response,
             request: message
@@ -182,7 +181,7 @@ class SlackBulkMaintainer {
         })
         .catch(error => {
           this.summary.postMessage.error++;
-          console.log(`${dryRunMsg}${email} への更新完了通知送信時にエラーが発生しました`);
+          this.logger.log(`${email} への更新完了通知送信時にエラーが発生しました`);
           // TODO switch handling based on error type
           updateResult.notification = {
             response: error,
@@ -191,7 +190,7 @@ class SlackBulkMaintainer {
           return Promise.resolve(updateResult)
         });
     } else {
-      console.log(`${dryRunMsg}${email} のプロフィール更新が行なわれなかったため、通知未送信です`);
+      this.logger.log(`${email} のプロフィール更新が行なわれなかったため、通知未送信です`);
       updateResult.notification = {};
       return Promise.resolve(updateResult);
     }

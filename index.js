@@ -21,6 +21,7 @@ const args = (function() {
 (async function (slackToken, csvFilePath, options) {
   if (!slackToken || slackToken.length === 0) {
     console.error('slack token cannot be empty.');
+    console.error('Set env variable like "export SLACK_TOKEN=xxxx" in bash.');
     return;
   }
   const dryRun = !(options['dry-run'] === false);

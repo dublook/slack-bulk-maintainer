@@ -2,33 +2,46 @@ import test from 'ava'
 import fs from 'fs'
 import SlackBulkMaintainer from '../slack-bulk-maintainer.js'
 
-const { WebClient } = require('@slack/client')
-
 global.td = require('testdouble')
 
 test.beforeEach(t => {
-
+  const logger = provideLoggerStub();
+  const slackClient = provideSlackWebClientStub();
+  const maintainer = new SlackBulkMaintainer(slackClient, logger);
+  t.context.maintainer = maintainer;
+  t.context.slackClient = slackClient;
+  t.context.logger = logger;
 })
 
 test.afterEach(t => {
-  td.reset()
+  // Don't call td.reset() to avoid global pollution
 })
 
 test('Maintainer hold slack token', async t => {
-  t.plan(2);
-  const maintainer = new SlackBulkMaintainer('dummy-token');
-  t.is(maintainer.webApi.token, 'dummy-token');
-  t.is(maintainer.dryRun, false);
+  t.plan(4);
+  const maintainer = t.context.maintainer;
+  t.is(maintainer.webApi, t.context.slackClient);
+  t.is(maintainer.logger, t.context.logger);
+  t.is(maintainer.authUser, null);
+  const summaryTemplate = {
+    try: 0,
+    skip: 0,
+    success: 0,
+    error: 0
+  };
+  t.deepEqual(maintainer.summary, {
+      profileSet: summaryTemplate,
+      postMessage: summaryTemplate
+  });
 });
 
 test('Update slack users profiles', async t => {
-  t.plan(4);
+  t.plan(5);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
 
   const userList = dummyUserList();
 
-  td.replace(maintainer.webApi.users.profile, 'set');
   const profileSet = maintainer.webApi.users.profile.set;
   td.when(profileSet(td.matchers.anything()))
     .thenResolve({
@@ -36,8 +49,16 @@ test('Update slack users profiles', async t => {
     });
   const profileSetExplain = td.explain(profileSet);
 
+  const notifyUpdatedUser = td.replace(maintainer, 'notifyUpdatedUser');
+  td.when(notifyUpdatedUser(td.matchers.anything())).thenDo(arg1 => {
+    return Promise.resolve(arg1);
+  });
+  const notifyUpdatedUserExplain = td.explain(notifyUpdatedUser);
+
+
   const filePath = 'test/resoures/update-profiles.csv';
-  const responses = await maintainer.updateProfilesFromCsv(filePath, userList.members);
+  const responses = await maintainer.updateProfilesFromCsv(filePath, userList.members)
+    .catch(e => e);
 
   t.is(responses.length, 2);
   t.is(responses[0].updateQuery.skipCallApi, true);
@@ -49,13 +70,13 @@ test('Update slack users profiles', async t => {
       'status_emoji': ':sleepy:'
     }
   }]);
+  t.is(notifyUpdatedUserExplain.calls.length, 2);
 });
 
 test('Fetch user list', async t => {
   t.plan(2); // FIXME include td assertions
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
-  td.replace(maintainer.webApi.users, 'list');
+  const maintainer = t.context.maintainer;
   const list = maintainer.webApi.users.list;
   td.when(list()).thenResolve(dummyUserList());
 
@@ -67,7 +88,7 @@ test('Fetch user list', async t => {
 });
 
 test('Find user info by email', t => {
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const user = maintainer.findUserByMail('jiro@example.com', dummyUserList().members);
   t.is(user.id, 'USERID2');
 });
@@ -75,7 +96,7 @@ test('Find user info by email', t => {
 test('Build update query', t => {
   t.plan(7);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const csvParam = {
     profile: {
       email: 'jiro@example.com',
@@ -99,7 +120,7 @@ test('Build update query', t => {
 test('Build update query for admin user, it will be skipped', t => {
   t.plan(6);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const csvParam = {
     profile: {
       email: 'suzuki-ichiro1@example.com',
@@ -121,7 +142,7 @@ test('Build update query for admin user, it will be skipped', t => {
 test('Build update query for admin user, skipped due to all columns are updated', t => {
   t.plan(6);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const csvParam = {
     profile: {
       email: 'jiro@example.com',
@@ -150,7 +171,7 @@ test('Build update query for admin user, skipped due to all columns are updated'
 test('Build update query for admin user, skipped due to no user found for email', t => {
   t.plan(6);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const csvParam = {
     profile: {
       email: 'noone@example.com',
@@ -171,7 +192,7 @@ test('Build update query for admin user, skipped due to no user found for email'
 
 test('Parse update param from CSV', t => {
   t.plan(3);
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
   const filePath = 'test/resoures/update-profiles.csv';
   const csvParams = maintainer.parseParamFromCsv(filePath);
 
@@ -190,8 +211,7 @@ test('Parse update param from CSV', t => {
 test('Notify updated user', async t => {
   t.plan(8);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
-  td.replace(maintainer.webApi.chat, 'postMessage');
+  const maintainer = t.context.maintainer;
   const postMessage = maintainer.webApi.chat.postMessage;
   td.when(postMessage(td.matchers.anything()))
     .thenResolve({ ok: true });
@@ -268,24 +288,10 @@ test('Notify updated user', async t => {
   });
 });
 
-test('POST methods will not be executed on dry-run mode', async t => {
-  t.plan(3);
-  const maintainer = new SlackBulkMaintainer('dummy-token', true);
-  t.is(maintainer.dryRun, true);
-  t.deepEqual(await maintainer.webApi.users.profile.set({}), {
-    ok: true,
-    dryRun: true
-  });
-  t.deepEqual(await maintainer.webApi.chat.postMessage({}), {
-    ok: true,
-    dryRun: true
-  });
-});
-
 test('Fetch token user', async t => {
   t.plan(2);
-  const maintainer = new SlackBulkMaintainer('dummy-token');
-  const authTest = td.replace(maintainer.webApi.auth, 'test');
+  const maintainer = t.context.maintainer;
+  const authTest = maintainer.webApi.auth.test;
   const user = {
     "ok": true,
     "url": "https:\/\/xxxx.slack.com\/",
@@ -305,7 +311,7 @@ test('Fetch token user', async t => {
 test('Is Auth User', t => {
   t.plan(3);
 
-  const maintainer = new SlackBulkMaintainer('dummy-token');
+  const maintainer = t.context.maintainer;
 
   t.is(maintainer.isAuthUser('foo'), false, 'When no auth user info');
 
@@ -317,4 +323,28 @@ test('Is Auth User', t => {
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);
+}
+
+function provideLoggerStub() {
+  return {
+    log: td.func(),
+    error: td.func()
+  }
+}
+
+function provideSlackWebClientStub() {
+  return {
+    auth: {
+      test: td.func()
+    },
+    users: {
+      profile: {
+        set: td.func(),
+      },
+      list: td.func()
+    },
+    chat: {
+      postMessage: td.func()
+    }
+  }
 }

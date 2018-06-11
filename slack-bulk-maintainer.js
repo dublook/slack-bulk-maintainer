@@ -25,29 +25,7 @@ class SlackBulkMaintainer {
       columns: true
     });
 
-    const csvParams = rows
-      .map(row => {
-        const updateBody = {
-          profile: {}
-        };
-        Object.keys(row).forEach(k => {
-          switch (k) {
-            case 'user':
-              updateBody.user = row['user'];
-              break;
-            case 'real_name':
-            case 'display_name':
-            case 'status_emoji':
-            case 'status_text':
-            case 'email':
-              updateBody.profile[k] = row[k];
-              break;
-            default:
-              break;
-          }
-        })
-        return updateBody;
-      });
+    const csvParams = rows.map(this.csvRowToProfileUpdateBody);
     return csvParams;
   }
 
@@ -273,7 +251,30 @@ class SlackBulkMaintainer {
       }
     });
     return callApiQuery;
-}
+  }
+
+  csvRowToProfileUpdateBody(csvRow) {
+    const updateBody = {
+      profile: {}
+    };
+    Object.keys(csvRow).forEach(k => {
+      switch (k) {
+        case 'user':
+          updateBody.user = csvRow['user'];
+          break;
+        case 'real_name':
+        case 'display_name':
+        case 'status_emoji':
+        case 'status_text':
+        case 'email':
+          updateBody.profile[k] = csvRow[k];
+          break;
+        default:
+          break;
+      }
+    });
+    return updateBody;
+  }
 
 }
 

@@ -320,6 +320,35 @@ test('Is Auth User', t => {
   t.is(maintainer.isAuthUser('bar'), false, 'Different user name provided');
 });
 
+test('Convert CSV row to profile object', t => {
+  t.plan(2);
+
+  const maintainer = t.context.maintainer;
+
+  const csvRow = {
+    user: 'userCode1',
+    real_name: 'Ichiro SUZUKI',
+    display_name: 'ICHIRO',
+    status_emoji: 'zany_face',
+    email: 'xxx@example.com',
+    skip_me: 'skip_me'
+  }
+
+  const profileObject = maintainer.csvRowToProfileUpdateBody(csvRow);
+  t.is(profileObject.profile.skip_me, undefined,
+    'Non-slack profile column must be skipped.');
+  t.deepEqual(profileObject, {
+    user: 'userCode1',
+    profile: {
+      real_name: 'Ichiro SUZUKI',
+      display_name: 'ICHIRO',
+      status_emoji: 'zany_face',
+      email: 'xxx@example.com'
+    }
+  });
+
+});
+
 function dummyUserList() {
   const fileContent = fs.readFileSync('test/resoures/user-list.json', 'utf8');
   return JSON.parse(fileContent);
